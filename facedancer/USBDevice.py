@@ -92,7 +92,7 @@ class USBDevice(USBDescribable):
         Creates a USBDevice object from its descriptor.
         """
 
-        data = bytes(data)
+        #data = bytes(data)
 
         # Pad the descriptor out with zeroes to the full length of a configuration descriptor.
         if len(data) < cls.DESCRIPTOR_LENGTH:
@@ -233,7 +233,8 @@ class USBDevice(USBDescribable):
         if req_type == USB.request_type_standard:
             handler_entity = recipient
         elif req_type == USB.request_type_class:
-            handler_entity = recipient.device_class
+            if hasattr(recipient, 'device_class'):
+                handler_entity = recipient.device_class
         elif req_type == USB.request_type_vendor:
             handler_entity = recipient.device_vendor
 

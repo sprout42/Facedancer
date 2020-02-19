@@ -144,7 +144,7 @@ class GreatDancerApp(FacedancerApp):
         if direction == self.HOST_TO_DEVICE:
             # If this was an OUT request, we'll prime the output buffer to
             # respond with the ZLP expected during the status stage.
-            self.send_on_endpoint(endpoint_number, data=[], blocking=blocking)
+            self.send_on_endpoint(endpoint_number, data=b'', blocking=blocking)
 
         else:
             # If this was an IN request, we'll need to set up a transfer descriptor
@@ -236,7 +236,7 @@ class GreatDancerApp(FacedancerApp):
             print("sending on {}: {}".format(ep_num, data))
 
         self._wait_until_ready_to_send(ep_num)
-        self.api.send_on_endpoint(ep_num, bytes(data))
+        self.api.send_on_endpoint(ep_num, data)
 
         # If we're blocking, wait until the transfer completes.
         if blocking:
