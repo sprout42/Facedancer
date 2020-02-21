@@ -4,7 +4,7 @@
 # sense) for implementing device classes (in the USB sense), eg, HID devices,
 # mass storage devices.
 
-class USBClass:
+class USBClass(object):
 
     name = "generic USB device class"
 
@@ -27,7 +27,7 @@ class USBClass:
         """To be overridden for subclasses to modify self.class_request_handlers"""
         pass
 
-    def get_descriptor(self):
+    def get_descriptor(self, *args, **kwargs):
         return self.descriptor
 
 

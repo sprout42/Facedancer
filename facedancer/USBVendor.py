@@ -3,7 +3,7 @@
 # Contains class definition for USBVendor, intended as a base class (in the OO
 # sense) for implementing device vendors.
 
-class USBVendor:
+class USBVendor(object):
     name = "generic USB device vendor"
 
     # maps bRequest to handler function

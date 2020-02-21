@@ -138,7 +138,7 @@ class GoodfetMaxUSBApp(MAXUSBApp):
 
 
 
-class Facedancer:
+class Facedancer(object):
     def __init__(self, serialport, verbose=0):
         self.serialport = serialport
         self.verbose = verbose
@@ -218,7 +218,7 @@ class Facedancer:
             print("Facedancer Tx command:", c)
 
 
-class FacedancerCommand:
+class FacedancerCommand(object):
     def __init__(self, app=None, verb=None, data=None):
         self.app = app
         self.verb = verb

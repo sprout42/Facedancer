@@ -37,7 +37,7 @@ class HIDClass(USBDescribable, USBClass):
         return cls(data)
 
 
-    def get_descriptor(self):
+    def get_descriptor(self, *args, **kwargs):
         return self.raw_descriptor
 
 

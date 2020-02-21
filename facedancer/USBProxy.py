@@ -19,7 +19,7 @@ import usb
 from usb.core import USBError
 
 
-class USBProxyFilter:
+class USBProxyFilter(object):
     """
     Base class for filters that modify USB data.
     """

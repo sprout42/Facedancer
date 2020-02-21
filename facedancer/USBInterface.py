@@ -145,29 +145,33 @@ class USBInterface(USBDescribable):
         self.configuration.device.maxusb_app.stall_ep0()
 
     # Table 9-12 of USB 2.0 spec (pdf page 296)
-    def get_descriptor(self):
+    def get_descriptor(self, *args, **kwargs):
+        bLength = 9
+        bDescriptorType = DescriptorType.interface
+        bNumEndpoints = len(self.endpoints)
 
-        d = bytearray([
-                9,          # length of descriptor in bytes
-                4,          # descriptor type 4 == interface
-                self.number,
-                self.alternate,
-                len(self.endpoints),
-                self.iclass.class_number,
-                self.subclass,
-                self.protocol,
-                self.string_index
-        ])
+        d = struct.pack(
+            '<BBBBBBBBB',
+            bLength,  # length of descriptor in bytes
+            bDescriptorType,  # descriptor type 4 == interface
+            self.number,
+            self.alternate,
+            bNumEndpoints,
+            self.iclass.class_number,
+            self.subclass,
+            self.protocol,
+            self.string_index
+        )
 
         # If we have a class object, append its class descriptor...
         if self.iclass:
-            descriptor = self.iclass.get_descriptor()
+            descriptor = self.iclass.get_descriptor(*args, **kwargs)
             if descriptor:
                 d += descriptor
 
         # ... append each endpoint's endpoint descriptor.
         for e in self.endpoints:
-            d += e.get_descriptor()
+            d += e.get_descriptor(*args, **kwargs)
 
         return d
 

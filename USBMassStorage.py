@@ -357,7 +357,7 @@ class USBMassStorageInterface(USBInterface):
         self.ep_to_host.send_packet(csw, blocking=True)
 
 
-class CommandBlockWrapper:
+class CommandBlockWrapper(object):
     def __init__(self, bytestring):
         self.signature              = bytestring[0:4]
         self.tag                    = bytestring[4:8]
@@ -420,7 +420,7 @@ class USBMassStorageDevice(USBDevice):
         USBDevice.disconnect(self)
 
 
-class DiskImage:
+class DiskImage(object):
     """
         Class representing an arbitrary disk image, which can be procedurally generated,
         or which can be rendered from e.g. a file.

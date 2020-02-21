@@ -98,7 +98,7 @@ class USBEndpoint(USBDescribable):
         self.interface = interface
 
     # see Table 9-13 of USB 2.0 spec (pdf page 297)
-    def get_descriptor(self):
+    def get_descriptor(self, *args, **kwargs):
         address = (self.number & 0x0f) | (self.direction << 7)
         attributes = (self.transfer_type & 0x03) \
                    | ((self.sync_type & 0x03) << 2) \

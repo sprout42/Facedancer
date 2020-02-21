@@ -18,7 +18,7 @@ finally:
 
 # Replace the print builtin to not let curses mess up facedancer logs.
 
-class PrintWrapper:
+class PrintWrapper(object):
     def __init__(self):
         def fake_print(*args):
                 screen.addstr(' '.join([str(arg) for arg in args]) + '\n')

@@ -22,7 +22,7 @@ else:
     dynamic_options['setup_requires'] = ['setuptools-git-version']
 
 setup(
-    name='Facedancer',
+    name='facedancer',
     version=version,
     url='https://greatscottgadgets.com/greatfet/',
     license='BSD',

@@ -6,7 +6,7 @@
 # TODO: would be nice if this module could re-export the other USB* classes so
 # one need import only USB to get all the functionality
 
-class USB:
+class USB(object):
     state_detached                      = 0
     state_attached                      = 1
     state_powered                       = 2

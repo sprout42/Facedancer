@@ -6,8 +6,6 @@ from .USB import *
 from .USBClass import *
 from .USBConfiguration import USBConfiguration
 
-
-
 import time
 import struct
 
@@ -20,12 +18,20 @@ class USBDevice(USBDescribable):
     def __init__(self, maxusb_app, device_class=0, device_subclass=0,
             protocol_rel_num=0, max_packet_size_ep0=64, vendor_id=0, product_id=0,
             device_rev=0, manufacturer_string="", product_string="",
-            serial_number_string="", configurations=[], descriptors={},
-            spec_version=0x0002, verbose=0, quirks=[], scheduler=None):
+            serial_number_string="", configurations=None, descriptors=None,
+            spec_version=0x0002, verbose=5, quirks=None, scheduler=None):
+
+        if configurations is None:
+            configurations = []
+        if descriptors is None:
+            descriptors = {}
+        if quirks is None:
+            quirks = {}
+
         self.maxusb_app = maxusb_app
         self.verbose = verbose
 
-        self.quirks = quirks[:]
+        self.quirks = quirks
         self.correct_set_address = ('fast_set_address' not in quirks)
 
         self.strings = [ ]
@@ -51,12 +57,12 @@ class USBDevice(USBDescribable):
 
         # maps from USB.desc_type_* to bytearray OR callable
         self.descriptors = descriptors
-        self.descriptors[USB.desc_type_device] = lambda _ : self.get_descriptor()
+        self.descriptors[USB.desc_type_device] = self.get_descriptor
         self.descriptors[USB.desc_type_configuration] = self.handle_get_configuration_descriptor_request
         self.descriptors[USB.desc_type_string] = self.handle_get_string_descriptor_request
 
         self.config_num = -1
-        self.configuration = None
+        self.cur_configuration = None
         self.configurations = configurations
 
         for c in self.configurations:
@@ -82,9 +88,6 @@ class USBDevice(USBDescribable):
 
         # Add our IRQ-servicing task to the scheduler's list of tasks to be serviced.
         self.scheduler.add_task(lambda : self.maxusb_app.service_irqs())
-
-
-
 
     @classmethod
     def from_binary_descriptor(cls, data):
@@ -115,8 +118,6 @@ class USBDevice(USBDescribable):
         return cls(None, device_class, device_subclass, device_protocol, max_packet_size_ep0,
                    vendor_id, product_id, device_rev, manufacturer_string_index, product_string_index,
                    serial_number_string_index, configurations, spec_version=spec_version)
-
-
 
     def get_string_id(self, s):
 
@@ -174,27 +175,26 @@ class USBDevice(USBDescribable):
     def set_address(self, address, defer=False):
         self.maxusb_app.set_address(address, defer)
 
-    def get_descriptor(self, n=0x12):
-        d = bytearray([
-            18,         # length of descriptor in bytes
-            1,          # descriptor type 1 == device
-            (self.usb_spec_version >> 8) & 0xff,
-            self.usb_spec_version & 0xff,
+    def get_descriptor(self, n=0x12, *args, **kwargs):
+        bLength = 18
+        bDescriptorType = 1
+        d = struct.pack(
+            '<BBHBBBBHHHBBBB',
+            bLength,
+            bDescriptorType,
+            self.usb_spec_version,
             self.device_class,
             self.device_subclass,
             self.protocol_rel_num,
             self.max_packet_size_ep0,
-            self.vendor_id & 0xff,
-            (self.vendor_id >> 8) & 0xff,
-            self.product_id & 0xff,
-            (self.product_id >> 8) & 0xff,
-            (self.device_rev >> 8) & 0xff,
-            self.device_rev & 0xff,
+            self.vendor_id,
+            self.product_id,
+            self.device_rev,
             self.manufacturer_string_id,
             self.product_string_id,
             self.serial_number_string_id,
             len(self.configurations)
-        ])
+        )
         return d[:n]
 
     def send_control_message(self, data):
@@ -210,12 +210,12 @@ class USBDevice(USBDescribable):
         # figure out the intended recipient
         recipient_type = req.get_recipient()
         recipient = None
-        index = req.get_index()
+        index = req.req_index
         if recipient_type == USB.request_recipient_device:
             recipient = self
         elif recipient_type == USB.request_recipient_interface:
-            if index < len(self.configuration.interfaces):
-                recipient = self.configuration.interfaces[index]
+            if index < len(self.cur_configuration.interfaces):
+                recipient = self.cur_configuration.interfaces[index]
         elif recipient_type == USB.request_recipient_endpoint:
             if index == 0:
                 recipient = self
@@ -233,8 +233,7 @@ class USBDevice(USBDescribable):
         if req_type == USB.request_type_standard:
             handler_entity = recipient
         elif req_type == USB.request_type_class:
-            if hasattr(recipient, 'device_class'):
-                handler_entity = recipient.device_class
+            handler_entity = recipient.device_class
         elif req_type == USB.request_type_vendor:
             handler_entity = recipient.device_vendor
 
@@ -345,24 +344,31 @@ class USBDevice(USBDescribable):
     def handle_get_string_descriptor_request(self, num):
         if num == 0:
             # HACK: hard-coding baaaaad
-            d = bytes([
-                    4,      # length of descriptor in bytes
-                    3,      # descriptor type 3 == string
-                    9,      # language code 0, byte 0
-                    4       # language code 0, byte 1
-            ])
+            #
+            # length of descriptor in bytes
+            # descriptor type 3 == string
+            # language code 0, byte 0
+            # language code 0, byte 1
+            d = b'\x04\x03\x09\x04'
         else:
             # string descriptors start at 1
-            s = self.strings[num-1].encode('utf-16')
+            s = None
+            if num <= len(self.strings):
+                s = self.strings[num - 1].encode('utf-16')
+            else:
+                if self.configuration:
+                    s = self.configuration.get_string_by_id(num)
+            if not s:
+                s = self.strings[0].encode('utf-16')
 
             # Linux doesn't like the leading 2-byte Byte Order Mark (BOM);
             # FreeBSD is okay without it
             s = s[2:]
 
-            d = bytearray([
-                    len(s) + 2,     # length of descriptor in bytes
-                    3               # descriptor type 3 == string
-            ])
+            d = struct.pack('<BB', 
+                len(s) + 2,     # length of descriptor in bytes
+                3               # descriptor type 3 == string
+            )
             d += s
 
         return d
@@ -378,11 +384,11 @@ class USBDevice(USBDescribable):
                     % req.value)
 
         # If we haven't yet been configured, send back a zero configuration value.
-        if self.configuration is None:
+        if self.cur_configuration is None:
             self.send_control_message(b'\x00')
         # Otherwise, return the index for our configuration.
         else:
-            config_index = self.configuration.configuration_index
+            config_index = self.cur_configuration.configuration_index
             self.send_control_message(config_index.to_bytes(1, byteorder='little'))
 
     # USB 2.0 specification, section 9.4.7 (p 285 of pdf)
@@ -391,12 +397,12 @@ class USBDevice(USBDescribable):
 
         # configs are one-based
         self.config_num = req.value - 1
-        self.configuration = self.configurations[self.config_num]
+        self.cur_configuration = self.configurations[self.config_num]
         self.state = USB.state_configured
 
         # collate endpoint numbers
         self.endpoints = { }
-        for i in self.configuration.interfaces:
+        for i in self.cur_configuration.interfaces:
             for e in i.endpoints:
                 self.endpoints[e.number] = e
 
@@ -405,7 +411,7 @@ class USBDevice(USBDescribable):
 
         # notify the device of the recofiguration, in case
         # it needs to e.g. set up endpoints accordingly
-        self.maxusb_app.configured(self.configuration)
+        self.maxusb_app.configured(self.cur_configuration)
 
     # USB 2.0 specification, section 9.4.4 (p 282 of pdf)
     def handle_get_interface_request(self, req):
@@ -429,7 +435,7 @@ class USBDevice(USBDescribable):
         return "<USBDevice object; vid=0x{:04x}, pid=0x{:04x}>".format(self.vendor_id, self.product_id)
 
 
-class USBDeviceRequest:
+class USBDeviceRequest(object):
 
     _type_descriptions = {
         0:  'standard',
@@ -483,15 +489,19 @@ class USBDeviceRequest:
         self.length         = (raw_bytes[7] << 8) | raw_bytes[6]
         self.data           = raw_bytes[8:]
 
+        self.req_direction = self.get_direction()
+        self.req_type = self.get_type()
+        self.req_recipient = self.get_recipient()
+        self.req_index = self.get_index()
+
     def __str__(self):
         s = "dir=%d, type=%x, rec=%x, r=%x, v=%x, i=%x, l=%d" \
-                % (self.get_direction(), self.get_type(), self.get_recipient(),
+                % (self.req_direction, self.req_type, self.req_recipient,
                    self.request, self.value, self.index, self.length)
         return s
 
-
     def __repr__(self):
-        direction_marker = "<" if self.get_direction() == 1 else ">"
+        direction_marker = "<" if self.req_direction == 1 else ">"
 
         # Pretty print, where possible.
         type = self.get_type_string()
@@ -504,15 +514,14 @@ class USBDeviceRequest:
                    value, self.index, self.length)
         return s
 
-
     def get_type_string(self):
-        return self._type_descriptions[self.get_type()]
+        return self._type_descriptions[self.req_type]
 
     def get_recipient_string(self):
-        return self._recipent_descriptions[self.get_type()]
+        return self._recipent_descriptions[self.req_type]
 
     def get_request_number_string(self):
-        if self.get_type() == 0:
+        if self.req_type == 0:
             return self._get_standard_request_number_string()
         else:
             type = self.get_type_string()
@@ -526,7 +535,7 @@ class USBDeviceRequest:
 
     def get_value_string(self):
         # If this is a GET_DESCRIPTOR request, parse it.
-        if self.get_type() == 0 and self.request == 6:
+        if self.req_type == 0 and self.request == 6:
             descriptor_index = self.value & 0xff
             description = self.get_descriptor_number_string()
             return "{} descriptor (index=0x{:02x})".format(description, descriptor_index)
@@ -561,7 +570,7 @@ class USBDeviceRequest:
     # meaning of bits in wIndex changes whether we're talking about an
     # interface or an endpoint (see USB 2.0 spec section 9.3.4)
     def get_index(self):
-        rec = self.get_recipient()
+        rec = self.req_recipient
         if rec == 1:                # interface
             return self.index
         elif rec == 2:              # endpoint

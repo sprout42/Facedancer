@@ -108,10 +108,10 @@ class USBConfiguration(USBDescribable):
     def set_configuration_string_index(self, i):
         self.configuration_string_index = i
 
-    def get_descriptor(self):
-        interface_descriptors = bytearray()
+    def get_descriptor(self, *args, **kwargs):
+        interface_descriptors = b''
         for i in self.interfaces:
-            interface_descriptors += i.get_descriptor()
+            interface_descriptors += i.get_descriptor(*args, **kwargs)
 
         total_len = len(interface_descriptors) + 9
 

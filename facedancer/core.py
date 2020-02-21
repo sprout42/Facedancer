@@ -23,7 +23,7 @@ def FacedancerUSBApp(verbose=0, quirks=None):
     return FacedancerApp.autodetect(verbose, quirks)
 
 
-class FacedancerApp:
+class FacedancerApp(object):
     app_name = "override this"
     app_num = 0x00
 
@@ -119,7 +119,7 @@ def FacedancerUSBHostApp(verbose=0, quirks=None):
     return FacedancerUSBHost.autodetect(verbose, quirks)
 
 
-class FacedancerUSBHost:
+class FacedancerUSBHost(object):
     """
     Base class for FaceDancer host connections-- extended to provide actual
     connections to each host.
