@@ -208,15 +208,14 @@ class USBDevice(USBDescribable):
             print(self.name, "received request", repr(req))
 
         # figure out the intended recipient
-        recipient_type = req.get_recipient()
         recipient = None
         index = req.req_index
-        if recipient_type == USB.request_recipient_device:
+        if req.req_recipient_type == USB.request_recipient_device:
             recipient = self
-        elif recipient_type == USB.request_recipient_interface:
+        elif req.req_recipient_type == USB.request_recipient_interface:
             if index < len(self.cur_configuration.interfaces):
                 recipient = self.cur_configuration.interfaces[index]
-        elif recipient_type == USB.request_recipient_endpoint:
+        elif req.req_recipient_type == USB.request_recipient_endpoint:
             if index == 0:
                 recipient = self
             else:
@@ -228,28 +227,19 @@ class USBDevice(USBDescribable):
             return
 
         # and then the type
-        req_type = req.get_type()
         handler_entity = None
-        if req_type == USB.request_type_standard:
+        if req.req_type == USB.request_type_standard:
             handler_entity = recipient
-        elif req_type == USB.request_type_class:
+        elif req.req_type == USB.request_type_class:
             handler_entity = recipient.device_class
-        elif req_type == USB.request_type_vendor:
+        elif req.req_type == USB.request_type_vendor:
             handler_entity = recipient.device_vendor
 
         if not handler_entity:
             print(self.name, "invalid handler entity, stalling: {}".format(req))
             self.maxusb_app.stall_ep0()
-            return
-
-        handler = handler_entity.request_handlers.get(req.request, None)
-
-        if not handler:
-            print(self.name, "received unhandled EP0 control request; stallling:\n {}".format(repr(req)))
-            self.maxusb_app.stall_ep0()
-            return
-
-        handler(req)
+        else:
+            handler_entity(req)
 
     def handle_data_available(self, ep_num, data):
         if self.state == USB.state_configured and ep_num in self.endpoints:
@@ -482,21 +472,26 @@ class USBDeviceRequest(object):
     def __init__(self, raw_bytes):
         """Expects raw 8-byte setup data request packet"""
 
-        self.request_type   = raw_bytes[0]
-        self.request        = raw_bytes[1]
-        self.value          = (raw_bytes[3] << 8) | raw_bytes[2]
-        self.index          = (raw_bytes[5] << 8) | raw_bytes[4]
-        self.length         = (raw_bytes[7] << 8) | raw_bytes[6]
-        self.data           = raw_bytes[8:]
+        self.raw            = raw_bytes
 
-        self.req_direction = self.get_direction()
-        self.req_type = self.get_type()
-        self.req_recipient = self.get_recipient()
-        self.req_index = self.get_index()
+        (
+            self.request_type,
+            self.request,
+            self.value,
+            self.index,
+            self.length
+        ) = struct.unpack('<BBHHH', raw_bytes[:8])
+        self.data = raw_bytes[8:]
+
+        # Some fields that are meaningful only for some request types
+        self.req_direction = self._get_direction()
+        self.req_type = self._get_type()
+        self.req_recipient_type = self._get_recipient()
+        self.req_index = self._get_index()
 
     def __str__(self):
         s = "dir=%d, type=%x, rec=%x, r=%x, v=%x, i=%x, l=%d" \
-                % (self.req_direction, self.req_type, self.req_recipient,
+                % (self.req_direction, self.req_type, self.req_recipient_type,
                    self.request, self.value, self.index, self.length)
         return s
 
@@ -550,30 +545,25 @@ class USBDeviceRequest(object):
             return "unknown descriptor 0x%x" % self.value
 
     def raw(self):
-        """returns request as bytes"""
-        b = bytes([ self.request_type, self.request,
-                    self.value  & 0xff, (self.value  >> 8) & 0xff,
-                    self.index  & 0xff, (self.index  >> 8) & 0xff,
-                    self.length & 0xff, (self.length >> 8) & 0xff
-                  ])
-        return b
+        return self.raw
 
-    def get_direction(self):
-        return (self.request_type >> 7) & 0x01
+    def _get_direction(self):
+        # Only valid if this is an endpoint
+        return (self.raw[0] & 0x80) >> 7
 
-    def get_type(self):
-        return (self.request_type >> 5) & 0x03
+    def _get_type(self):
+        return (self.raw[0] & 0x60) >> 5
 
-    def get_recipient(self):
-        return self.request_type & 0x1f
+    def _get_recipient(self):
+        return self.raw[0] & 0x1f
 
     # meaning of bits in wIndex changes whether we're talking about an
     # interface or an endpoint (see USB 2.0 spec section 9.3.4)
-    def get_index(self):
-        rec = self.req_recipient
+    def _get_index(self):
+        rec = self.req_recipient_type
         if rec == 1:                # interface
-            return self.index
+            return self.index & 0x00FF
         elif rec == 2:              # endpoint
-            return self.index & 0x0f
-
-
+            return self.index & 0x000F
+        else:
+            return None
