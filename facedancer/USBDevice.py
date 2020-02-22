@@ -54,12 +54,13 @@ class USBDevice(USBDescribable):
         else:
             self.serial_number_string_id = 0
 
-
         # maps from USB.desc_type_* to bytearray OR callable
-        self.descriptors = descriptors
-        self.descriptors[USB.desc_type_device] = self.get_descriptor
-        self.descriptors[USB.desc_type_configuration] = self.handle_get_configuration_descriptor_request
-        self.descriptors[USB.desc_type_string] = self.handle_get_string_descriptor_request
+        self.descriptors = {
+            USB.desc_type_device: self.get_descriptor,
+            USB.desc_type_configuration: self.handle_get_configuration_descriptor_request,
+            USB.desc_type_string: self.handle_get_string_descriptor_request,
+        }
+        self.descriptors.update(descriptors)
 
         self.config_num = -1
         self.cur_configuration = None

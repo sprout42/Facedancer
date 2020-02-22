@@ -379,7 +379,7 @@ class GreatDancerApp(FacedancerApp):
 
         # If this is an OUT request, handle the data stage,
         # and add it to the request.
-        is_out   = request.get_direction() == self.HOST_TO_DEVICE
+        is_out   = request.req_direction == self.HOST_TO_DEVICE
         has_data = (request.length > 0)
 
         # Special case: if this is an OUT request with a data stage, we won't
