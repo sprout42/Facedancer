@@ -112,7 +112,6 @@ class GreatDancerApp(FacedancerApp):
         else:
             self.quirks = []
 
-
     def init_commands(self):
         """
         API compatibility fucntion; not necessary for GreatDancer.
@@ -198,9 +197,11 @@ class GreatDancerApp(FacedancerApp):
 
         self.api.connect(self.max_ep0_packet_size, quirks)
         self.connected_device = usb_device
-
         if self.verbose > 0:
             print(self.app_name, "connected device", self.connected_device.name)
+
+        # Speed up transactions to the greatfet
+        self.device.comms.get_exclusive_access()
 
 
     def disconnect(self):
@@ -233,7 +234,7 @@ class GreatDancerApp(FacedancerApp):
         blocking: If true, this function will wait for the transfer to complete.
         """
         if self.verbose > 3:
-            print("sending on {}: {}".format(ep_num, data))
+            print("sending on {}: {}".format(ep_num, data.hex()))
 
         self._wait_until_ready_to_send(ep_num)
         self.api.send_on_endpoint(ep_num, data)
