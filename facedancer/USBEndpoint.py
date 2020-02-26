@@ -90,8 +90,8 @@ class USBEndpoint(USBDescribable):
         )
 
     def handle_clear_feature_request(self, req):
-        print("received CLEAR_FEATURE request for endpoint", self.number,
-                "with value", req.value)
+        #print("received CLEAR_FEATURE request for endpoint", self.number,
+        #        "with value", req.value)
         self.interface.configuration.device.maxusb_app.send_on_endpoint(0, b'')
 
     def set_interface(self, interface):

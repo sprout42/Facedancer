@@ -19,7 +19,7 @@ class USBDevice(USBDescribable):
             protocol_rel_num=0, max_packet_size_ep0=64, vendor_id=0, product_id=0,
             device_rev=0, manufacturer_string="", product_string="",
             serial_number_string="", configurations=None, descriptors=None,
-            spec_version=0x0002, verbose=5, quirks=None, scheduler=None):
+            spec_version=0x0002, verbose=0, quirks=None, scheduler=None):
 
         if configurations is None:
             configurations = []
@@ -223,7 +223,8 @@ class USBDevice(USBDescribable):
                 recipient = self.endpoints.get(index, None)
 
         if not recipient:
-            print(self.name, "invalid recipient, stalling")
+            if self.verbose > 1:
+                print(self.name, "invalid recipient, stalling")
             self.maxusb_app.stall_ep0()
             return
 
@@ -237,7 +238,8 @@ class USBDevice(USBDescribable):
             handler_entity = recipient.device_vendor
 
         if not handler_entity:
-            print(self.name, "invalid handler entity, stalling: {}".format(req))
+            if self.verbose > 1:
+                print(self.name, "invalid handler entity, stalling: {}".format(req))
             self.maxusb_app.stall_ep0()
         else:
             handler_entity(req)
@@ -266,7 +268,8 @@ class USBDevice(USBDescribable):
 
     # USB 2.0 specification, section 9.4.5 (p 282 of pdf)
     def handle_get_status_request(self, req):
-        print(self.name, "received GET_STATUS request")
+        if self.verbose > 2:
+            print(self.name, "received GET_STATUS request")
 
         # self-powered and remote-wakeup (USB 2.0 Spec section 9.4.5)
         response = b'\x03\x00'
@@ -274,13 +277,15 @@ class USBDevice(USBDescribable):
 
     # USB 2.0 specification, section 9.4.1 (p 280 of pdf)
     def handle_clear_feature_request(self, req):
-        print(self.name, "received CLEAR_FEATURE request with type 0x%02x and value 0x%02x" \
+        if self.verbose > 2:
+            print(self.name, "received CLEAR_FEATURE request with type 0x%02x and value 0x%02x" \
                 % (req.request_type, req.value))
         self.ack_status_stage()
 
     # USB 2.0 specification, section 9.4.9 (p 286 of pdf)
     def handle_set_feature_request(self, req):
-        print(self.name, "received SET_FEATURE request")
+        if self.verbose > 2:
+            print(self.name, "received SET_FEATURE request")
 
     # USB 2.0 specification, section 9.4.6 (p 284 of pdf)
     def handle_set_address_request(self, req):
@@ -366,7 +371,8 @@ class USBDevice(USBDescribable):
 
     # USB 2.0 specification, section 9.4.8 (p 285 of pdf)
     def handle_set_descriptor_request(self, req):
-        print(self.name, "received SET_DESCRIPTOR request")
+        if self.verbose > 2:
+            print(self.name, "received SET_DESCRIPTOR request")
 
     # USB 2.0 specification, section 9.4.2 (p 281 of pdf)
     def handle_get_configuration_request(self, req):
@@ -384,7 +390,8 @@ class USBDevice(USBDescribable):
 
     # USB 2.0 specification, section 9.4.7 (p 285 of pdf)
     def handle_set_configuration_request(self, req):
-        print(self.name, "received SET_CONFIGURATION request")
+        if self.verbose > 2:
+            print(self.name, "received SET_CONFIGURATION request")
 
         # configs are one-based
         self.config_num = req.value - 1
@@ -406,7 +413,8 @@ class USBDevice(USBDescribable):
 
     # USB 2.0 specification, section 9.4.4 (p 282 of pdf)
     def handle_get_interface_request(self, req):
-        print(self.name, "received GET_INTERFACE request")
+        if self.verbose > 2:
+            print(self.name, "received GET_INTERFACE request")
 
         if req.index == 0:
             # HACK: currently only support one interface
@@ -416,11 +424,13 @@ class USBDevice(USBDescribable):
 
     # USB 2.0 specification, section 9.4.10 (p 288 of pdf)
     def handle_set_interface_request(self, req):
-        print(self.name, "received SET_INTERFACE request")
+        if self.verbose > 2:
+            print(self.name, "received SET_INTERFACE request")
 
     # USB 2.0 specification, section 9.4.11 (p 288 of pdf)
     def handle_synch_frame_request(self, req):
-        print(self.name, "received SYNCH_FRAME request")
+        if self.verbose > 2:
+            print(self.name, "received SYNCH_FRAME request")
 
     def __repr__(self):
         return "<USBDevice object; vid=0x{:04x}, pid=0x{:04x}>".format(self.vendor_id, self.product_id)

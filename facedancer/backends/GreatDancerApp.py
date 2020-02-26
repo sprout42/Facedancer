@@ -375,7 +375,7 @@ class GreatDancerApp(FacedancerApp):
         self.endpoint_stalled[endpoint_number] = False
 
         # Read the data from the SETUP stage...
-        data    = bytearray(self.api.read_setup(endpoint_number))
+        data    = self.api.read_setup(endpoint_number)
         request = USBDeviceRequest(data)
 
         # If this is an OUT request, handle the data stage,
@@ -546,7 +546,7 @@ class GreatDancerApp(FacedancerApp):
                     new_data = self._finish_primed_read_on_endpoint(endpoint_number)
 
                     # Append our new data to the pending control request.
-                    self.pending_control_request.data.extend(new_data)
+                    self.pending_control_request.data += new_data
 
                     all_data_received = len(self.pending_control_request.data) == self.pending_control_request.length
                     is_short_packet   = len(new_data) < self.max_ep0_packet_size
