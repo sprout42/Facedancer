@@ -550,13 +550,13 @@ class USBDeviceRequest(object):
 
     def _get_direction(self):
         # Only valid if this is an endpoint
-        return (self.raw[0] & 0x80) >> 7
+        return (self.request_type & 0x80) >> 7
 
     def _get_type(self):
-        return (self.raw[0] & 0x60) >> 5
+        return (self.request_type & 0x60) >> 5
 
     def _get_recipient(self):
-        return self.raw[0] & 0x1f
+        return self.request_type & 0x1f
 
     # meaning of bits in wIndex changes whether we're talking about an
     # interface or an endpoint (see USB 2.0 spec section 9.3.4)
